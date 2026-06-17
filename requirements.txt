@@ -1,0 +1,14 @@
+# Video Transcriber — dependencias
+# Instalar con: pip install -r requirements.txt
+
+# Interfaz gráfica moderna sobre tkinter
+customtkinter>=5.2.0
+
+# Motor de transcripción (4x más rápido que openai-whisper en CPU)
+faster-whisper>=1.0.0
+
+# Certificados SSL actualizados (fix para macOS)
+certifi>=2024.2.2
+
+# PyInstaller para generar el .app (solo necesario para empaquetar)
+pyinstaller>=6.5.0
