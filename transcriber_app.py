@@ -112,6 +112,8 @@ class TranscriberApp(ctk.CTk):
         self._video_path: Path | None = None
         self._is_processing = False
         self._start_time: float = 0.0
+        self._remaining_seconds: float | None = None
+        self._cancel_event = threading.Event()
 
         self._build_ui()
         # La comprobación de ffmpeg se hace tras construir la UI,
@@ -204,7 +206,19 @@ class TranscriberApp(ctk.CTk):
             font=ctk.CTkFont(size=16, weight="bold"),
             command=self._start_transcription,
         )
-        self._transcribe_btn.pack(fill="x", padx=28, pady=(4, 14))
+        self._transcribe_btn.pack(fill="x", padx=28, pady=(4, 6))
+
+        self._cancel_btn = ctk.CTkButton(
+            self,
+            text="Cancelar",
+            height=36,
+            font=ctk.CTkFont(size=14),
+            fg_color="#c0392b",
+            hover_color="#a93226",
+            command=self._cancel_transcription,
+        )
+        self._cancel_btn.pack(fill="x", padx=28, pady=(0, 8))
+        self._cancel_btn.pack_forget()
 
         # Enter como atajo de teclado
         self.bind("<Return>", lambda _: self._start_transcription())
@@ -290,7 +304,10 @@ class TranscriberApp(ctk.CTk):
             return  # El aviso ya está visible en la UI
 
         self._is_processing = True
+        self._remaining_seconds = None
+        self._cancel_event.clear()
         self._transcribe_btn.configure(state="disabled", text="Procesando…")
+        self._cancel_btn.pack(fill="x", padx=28, pady=(0, 8))
         self._progress.pack(fill="x", padx=28)
         self._progress.start()
         self._start_time = time.time()
@@ -332,9 +349,18 @@ class TranscriberApp(ctk.CTk):
                 beam_size=5,
             )
 
-            # El generador se consume aquí: cada segmento llega según
-            # se va procesando el audio.
-            segment_list = list(segments_generator)
+            total_duration = info.duration
+            segment_list = []
+            for seg in segments_generator:
+                if self._cancel_event.is_set():
+                    self.after(0, self._on_cancelled)
+                    return
+                segment_list.append(seg)
+                elapsed_real = time.time() - self._start_time
+                if elapsed_real > 0 and seg.end > 0:
+                    rate = seg.end / elapsed_real
+                    remaining_audio = total_duration - seg.end
+                    self._remaining_seconds = remaining_audio / rate if rate > 0 else None
 
             srt_content = segments_to_srt(segment_list)
 
@@ -411,10 +437,21 @@ class TranscriberApp(ctk.CTk):
         )
         messagebox.showerror("Error", message)
 
+    def _cancel_transcription(self):
+        self._cancel_event.set()
+        self._cancel_btn.configure(state="disabled", text="Cancelando…")
+
+    def _on_cancelled(self):
+        self._finish_processing()
+        self._status_label.configure(text="Transcripción cancelada", text_color="gray")
+        self._timer_label.configure(text="")
+
     def _finish_processing(self):
         self._is_processing = False
         self._progress.stop()
         self._progress.pack_forget()
+        self._cancel_btn.pack_forget()
+        self._cancel_btn.configure(state="normal", text="Cancelar")
         self._transcribe_btn.configure(state="normal", text="Transcribir")
 
     # ── Helpers de UI (seguros para llamar desde cualquier hilo via after) ────
@@ -427,12 +464,17 @@ class TranscriberApp(ctk.CTk):
         self._timer_label.configure(text="")
 
     def _update_timer(self):
-        """Actualiza el contador de tiempo cada segundo mientras procesa."""
+        """Actualiza el contador de tiempo restante cada segundo mientras procesa."""
         if not self._is_processing:
             return
-        elapsed = int(time.time() - self._start_time)
-        m, s = divmod(elapsed, 60)
-        self._timer_label.configure(text=f"Tiempo transcurrido: {m:02d}:{s:02d}")
+        if self._remaining_seconds is not None:
+            remaining = max(0, int(self._remaining_seconds))
+            m, s = divmod(remaining, 60)
+            self._timer_label.configure(text=f"Tiempo restante: {m:02d}:{s:02d}")
+            if self._remaining_seconds > 0:
+                self._remaining_seconds -= 1
+        else:
+            self._timer_label.configure(text="Calculando tiempo restante…")
         self.after(1000, self._update_timer)
 
 

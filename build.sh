@@ -19,6 +19,7 @@ pyinstaller \
   --windowed \
   --onedir \
   --noconfirm \
+  --icon icon.icns \
   --hidden-import="customtkinter" \
   --hidden-import="faster_whisper" \
   --hidden-import="ctranslate2" \
