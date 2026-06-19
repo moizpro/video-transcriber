@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Transcriber</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="login-view" class="view">
+    <div class="card">
+      <h1>Video Transcriber</h1>
+      <p class="subtitle">Convierte vídeos a subtítulos .srt con Whisper AI</p>
+      <form id="login-form">
+        <input
+          type="password"
+          id="password-input"
+          placeholder="Contraseña"
+          autocomplete="current-password"
+          required
+        >
+        <button type="submit">Entrar</button>
+        <p id="login-error" class="error hidden"></p>
+      </form>
+    </div>
+  </main>
+
+  <main id="app-view" class="view hidden">
+    <div class="card">
+      <header>
+        <h1>Video Transcriber</h1>
+        <button id="logout-btn" class="link-btn" type="button">Cerrar sesión</button>
+      </header>
+      <p class="subtitle">Convierte vídeos a subtítulos .srt con Whisper AI</p>
+
+      <div id="drop-zone" class="drop-zone">
+        <input type="file" id="file-input" hidden>
+        <p id="drop-zone-text">Arrastra un vídeo aquí o haz clic para seleccionarlo</p>
+      </div>
+
+      <div class="options">
+        <label>
+          Modelo Whisper
+          <select id="model-select"></select>
+        </label>
+        <label>
+          Idioma
+          <select id="language-select"></select>
+        </label>
+      </div>
+
+      <button id="transcribe-btn" type="button" disabled>Transcribir</button>
+      <button id="cancel-btn" class="danger hidden" type="button">Cancelar</button>
+
+      <div id="status-area" class="status-area hidden">
+        <p id="status-text"></p>
+        <progress id="progress-bar" max="100" value="0"></progress>
+        <p id="eta-text"></p>
+      </div>
+
+      <div id="result-area" class="result-area hidden">
+        <p>✓ Transcripción completada</p>
+        <a id="download-link" class="button-link" download>Descargar .srt</a>
+      </div>
+
+      <p id="error-text" class="error hidden"></p>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

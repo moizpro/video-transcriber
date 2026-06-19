@@ -1,0 +1,11 @@
+.git
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+icon.*
+.env
+*.app
+transcriber_app.py
+build.sh

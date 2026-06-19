@@ -1,0 +1,221 @@
+:root {
+  --bg: #0f1115;
+  --card-bg: #181b21;
+  --border: #2a2e37;
+  --text: #e6e8eb;
+  --text-muted: #9aa0ab;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --danger: #c0392b;
+  --danger-hover: #a93226;
+  --success: #2ecc71;
+  --error: #e05252;
+  --radius: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 24px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.view {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  width: auto;
+}
+.link-btn:hover {
+  color: var(--text);
+}
+
+input[type="password"] {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #11141a;
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+button {
+  width: 100%;
+  padding: 13px;
+  border-radius: 8px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--primary);
+  color: white;
+  transition: background 0.15s ease;
+}
+button:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.danger {
+  background: var(--danger);
+  margin-top: 10px;
+}
+button.danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-bottom: 18px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+.drop-zone.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.options {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.options label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #11141a;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.status-area {
+  margin-top: 18px;
+  text-align: center;
+}
+#status-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+#eta-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0 0;
+}
+
+progress {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  appearance: none;
+}
+progress::-webkit-progress-bar {
+  background: var(--border);
+  border-radius: 4px;
+}
+progress::-webkit-progress-value {
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+.result-area {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--success);
+  font-size: 14px;
+}
+.button-link {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.button-link:hover {
+  background: var(--primary-hover);
+}
+
+.error {
+  color: var(--error);
+  font-size: 13px;
+  margin-top: 10px;
+  text-align: center;
+}

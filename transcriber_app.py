@@ -4,95 +4,26 @@ Video Transcriber — macOS Desktop App
 Convierte vídeos a subtítulos .srt usando Whisper AI (faster-whisper).
 """
 
-import os
-import sys
-
-# ── SSL Fix (macOS) ──────────────────────────────────────────────────────────
-# En macOS el sistema de certificados de Python puede fallar al descargar el
-# modelo de Whisper desde Hugging Face. certifi trae sus propios certificados
-# actualizados y los inyectamos ANTES de cualquier llamada de red.
-import certifi
-os.environ["SSL_CERT_FILE"] = certifi.where()
-os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
-
-import threading
 import subprocess
+import threading
 import time
 from pathlib import Path
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-
-# ── Constantes ───────────────────────────────────────────────────────────────
-
-WHISPER_MODELS = ["tiny", "base", "small", "medium", "large"]
-DEFAULT_MODEL = "medium"
-
-# Mapeo nombre legible → código ISO 639-1 (None = auto-detección)
-LANGUAGES: dict[str, str | None] = {
-    "Auto-detectar": None,
-    "Español": "es",
-    "English": "en",
-    "Français": "fr",
-    "Deutsch": "de",
-    "Italiano": "it",
-    "Português": "pt",
-    "日本語": "ja",
-    "中文": "zh",
-    "한국어": "ko",
-    "Русский": "ru",
-    "العربية": "ar",
-}
-DEFAULT_LANGUAGE = "Español"
-
-SUPPORTED_EXTENSIONS = {".mov", ".mp4", ".mkv", ".avi", ".webm", ".m4v"}
-
-FFMPEG_INSTALL_MSG = (
-    "⚠️  ffmpeg no está instalado — Whisper no puede leer vídeos sin él.\n"
-    "Instálalo con Homebrew:  brew install ffmpeg"
+from transcriber_core import (
+    DEFAULT_LANGUAGE,
+    DEFAULT_MODEL,
+    FFMPEG_INSTALL_MSG,
+    LANGUAGES,
+    SUPPORTED_EXTENSIONS,
+    WHISPER_MODELS,
+    TranscriptionCancelled,
+    TranscriptionProgress,
+    classify_error,
+    ffmpeg_available,
+    transcribe_video,
 )
-
-
-# ── Utilidades SRT ───────────────────────────────────────────────────────────
-
-def _seconds_to_srt_timestamp(seconds: float) -> str:
-    """Convierte segundos en marca de tiempo SRT: HH:MM:SS,mmm"""
-    h = int(seconds // 3600)
-    m = int((seconds % 3600) // 60)
-    s = int(seconds % 60)
-    ms = int(round((seconds % 1) * 1000))
-    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
-
-
-def segments_to_srt(segments: list) -> str:
-    """Convierte la lista de segmentos de faster-whisper a texto SRT."""
-    blocks = []
-    for i, seg in enumerate(segments, start=1):
-        start = _seconds_to_srt_timestamp(seg.start)
-        end = _seconds_to_srt_timestamp(seg.end)
-        blocks.append(f"{i}\n{start} --> {end}\n{seg.text.strip()}")
-    return "\n\n".join(blocks) + "\n"
-
-
-# ── Comprobación del sistema ──────────────────────────────────────────────────
-
-def ffmpeg_available() -> bool:
-    """Devuelve True si ffmpeg está accesible en el PATH actual."""
-    # En apps empaquetadas con PyInstaller el PATH puede ser reducido;
-    # añadimos las rutas habituales de Homebrew manualmente.
-    env_path = os.environ.get("PATH", "")
-    extra = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
-    os.environ["PATH"] = f"{env_path}:{extra}"
-
-    try:
-        result = subprocess.run(
-            ["ffmpeg", "-version"],
-            capture_output=True,
-            timeout=5,
-        )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
 
 
 # ── Aplicación principal ──────────────────────────────────────────────────────
@@ -327,86 +258,34 @@ class TranscriberApp(ctk.CTk):
         usamos self.after(0, callback) para despachar al hilo principal.
         """
         try:
-            # Import dentro del worker para que el splash de la app
-            # aparezca antes de cargar PyTorch/CTranslate2.
-            from faster_whisper import WhisperModel
+            def on_progress(p: TranscriptionProgress):
+                self._remaining_seconds = p.remaining_seconds
+                self._set_status(p.status)
 
             model_size = self._model_var.get()
             lang_code = LANGUAGES[self._lang_var.get()]  # None = auto
 
-            self._set_status(f"Cargando modelo '{model_size}' (puede tardar la primera vez)…")
-
-            # compute_type="int8" da buena velocidad en CPU sin GPU.
-            # El modelo se guarda en ~/.cache/huggingface/hub/ y no se
-            # vuelve a descargar en ejecuciones posteriores.
-            model = WhisperModel(model_size, device="cpu", compute_type="int8")
-
-            self._set_status("Transcribiendo audio…")
-
-            segments_generator, info = model.transcribe(
-                str(self._video_path),
-                language=lang_code,
-                beam_size=5,
+            result = transcribe_video(
+                self._video_path,
+                model_size,
+                lang_code,
+                cancel_event=self._cancel_event,
+                on_progress=on_progress,
+            )
+            self.after(
+                0, self._on_success,
+                result.srt_path, result.elapsed_seconds, result.detected_language,
             )
 
-            total_duration = info.duration
-            segment_list = []
-            for seg in segments_generator:
-                if self._cancel_event.is_set():
-                    self.after(0, self._on_cancelled)
-                    return
-                segment_list.append(seg)
-                elapsed_real = time.time() - self._start_time
-                if elapsed_real > 0 and seg.end > 0:
-                    rate = seg.end / elapsed_real
-                    remaining_audio = total_duration - seg.end
-                    self._remaining_seconds = remaining_audio / rate if rate > 0 else None
-
-            srt_content = segments_to_srt(segment_list)
-
-            srt_path = self._video_path.with_suffix(".srt")
-            srt_path.write_text(srt_content, encoding="utf-8")
-
-            elapsed = time.time() - self._start_time
-            detected_lang = info.language if lang_code is None else lang_code
-            self.after(0, self._on_success, srt_path, elapsed, detected_lang)
-
+        except TranscriptionCancelled:
+            self.after(0, self._on_cancelled)
         except ImportError:
             self.after(0, self._on_error,
                 "faster-whisper no está instalado.\n"
                 "Ejecuta: pip install faster-whisper"
             )
         except Exception as exc:
-            self.after(0, self._on_error, self._classify_error(exc))
-
-    def _classify_error(self, exc: Exception) -> str:
-        """Convierte excepciones técnicas en mensajes entendibles."""
-        msg = str(exc).lower()
-
-        if "ffmpeg" in msg or "no such file" in msg:
-            return (
-                "ffmpeg no encontrado en el PATH.\n"
-                "Instálalo con Homebrew:  brew install ffmpeg\n\n"
-                "Si ya está instalado, reinicia la app."
-            )
-        if "no audio" in msg or "invalid data" in msg or "moov atom" in msg:
-            return (
-                "El archivo no tiene pista de audio o está dañado.\n"
-                "Prueba a abrirlo en QuickTime Player para verificarlo."
-            )
-        if "ssl" in msg or "certificate" in msg:
-            return (
-                "Error de certificado SSL al descargar el modelo.\n"
-                "La corrección automática con certifi debería haberlo evitado.\n\n"
-                "Como alternativa, ejecuta desde Terminal:\n"
-                "  /Applications/Python 3.x/Install Certificates.command"
-            )
-        if "out of memory" in msg or "oom" in msg:
-            return (
-                "Memoria insuficiente para el modelo seleccionado.\n"
-                "Prueba con un modelo más pequeño (small o base)."
-            )
-        return f"Error inesperado durante la transcripción:\n\n{exc}"
+            self.after(0, self._on_error, classify_error(exc))
 
     # ── Callbacks del hilo principal ──────────────────────────────────────────
 

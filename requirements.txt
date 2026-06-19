@@ -12,3 +12,9 @@ certifi>=2024.2.2
 
 # PyInstaller para generar el .app (solo necesario para empaquetar)
 pyinstaller>=6.5.0
+
+# Interfaz web
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+itsdangerous>=2.1.2
